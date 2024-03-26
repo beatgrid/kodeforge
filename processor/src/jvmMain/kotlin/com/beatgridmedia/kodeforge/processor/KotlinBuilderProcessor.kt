@@ -1,8 +1,19 @@
 package com.beatgridmedia.kodeforge.processor
 
 import com.beatgridmedia.kodeforge.annotation.Builder
-import com.google.devtools.ksp.processing.*
-import com.google.devtools.ksp.symbol.*
+import com.google.devtools.ksp.processing.CodeGenerator
+import com.google.devtools.ksp.processing.Dependencies
+import com.google.devtools.ksp.processing.KSPLogger
+import com.google.devtools.ksp.processing.Resolver
+import com.google.devtools.ksp.processing.SymbolProcessor
+import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
+import com.google.devtools.ksp.processing.SymbolProcessorProvider
+import com.google.devtools.ksp.symbol.KSAnnotated
+import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSFunctionDeclaration
+import com.google.devtools.ksp.symbol.KSValueParameter
+import com.google.devtools.ksp.symbol.KSVisitorVoid
+import com.google.devtools.ksp.symbol.Nullability.NULLABLE
 import com.google.devtools.ksp.validate
 import java.io.OutputStream
 
@@ -29,48 +40,55 @@ class KotlinBuilderProcessor(
         }
 
         override fun visitFunctionDeclaration(function: KSFunctionDeclaration, data: Unit) {
-            val parent = function.parentDeclaration as KSClassDeclaration
-            val packageName = parent.containingFile!!.packageName.asString()
+            val parent = function.parentDeclaration as? KSClassDeclaration ?: error("Expected parent declaration to be a class declaration but was: ${function.parentDeclaration}")
+            val packageName = parent.containingFile?.packageName?.asString() ?: error("Could not get containing file from: $parent")
             val className = "${parent.simpleName.asString()}Builder"
-            val file = codeGenerator.createNewFile(Dependencies(true, function.containingFile!!), packageName , className)
+            val qualifiedClassName = parent.qualifiedName ?: error("Could not get qualified class name from: $parent")
+            val functionContainingFile = function.containingFile ?: error("Could not get containing file from $function")
+            val file = codeGenerator.createNewFile(Dependencies(true, functionContainingFile), packageName , className)
             file.appendText("package $packageName\n\n")
             file.appendText("class $className{\n")
-            function.parameters.forEach {
-                val name = it.name!!.asString()
-                val typeName = StringBuilder(it.type.resolve().declaration.qualifiedName?.asString() ?: "<ERROR>")
-                val typeArgs = it.type.element!!.typeArguments
-                if (it.type.element!!.typeArguments.isNotEmpty()) {
-                    typeName.append("<")
-                    typeName.append(
-                            typeArgs.map {
-                                val type = it.type?.resolve()
-                                "${it.variance.label} ${type?.declaration?.qualifiedName?.asString() ?: "ERROR"}" +
-                                        if (type?.nullability == Nullability.NULLABLE) "?" else ""
-                            }.joinToString(", ")
-                    )
-                    typeName.append(">")
-                }
-                file.appendText("    private var $name: $typeName? = null\n")
-                file.appendText("    internal fun with${name.replaceFirstChar { it.uppercase() } }($name: $typeName): $className {\n")
-                file.appendText("        this.$name = $name\n")
-                file.appendText("        return this\n")
+            function.parameters.forEach { parameter ->
+                val parameterName = parameter.name?.asString() ?: error("Could not get parameter name for parameter: $parameter")
+                val typeName = parameter.typeName
+                file.appendText("    private var $parameterName: $typeName? = null\n")
+                file.appendText("    fun $parameterName($parameterName: $typeName): $className = apply {\n")
+                file.appendText("        this.$parameterName = $parameterName\n")
                 file.appendText("    }\n\n")
             }
-            file.appendText("    internal fun build(): ${parent.qualifiedName!!.asString()} {\n")
-            file.appendText("        return ${parent.qualifiedName!!.asString()}(")
-            file.appendText(
-                function.parameters.map {
-                    "${it.name!!.asString()}!!"
-                }.joinToString(", ")
-            )
-            file.appendText(")\n")
+            file.appendText("    fun build(): ${qualifiedClassName.asString()} {\n")
+            file.appendText("        return ${qualifiedClassName.asString()}(\n")
+            for (parameter in function.parameters) {
+                val isNullable = parameter.type.resolve().nullability == NULLABLE
+                val parameterName = parameter.name?.asString() ?: error("Could not get parameter name for parameter: $parameter")
+                file.appendText("            $parameterName = this.$parameterName" + (if (!isNullable) " ?: error(\"Required parameter $parameterName is not set\"),\n" else ",\n"))
+            }
+            file.appendText("        )\n")
             file.appendText("    }\n")
             file.appendText("}\n")
             file.close()
         }
     }
-
 }
+
+private val KSValueParameter.typeName: String
+    get() {
+        val baseName = this.type.resolve().declaration.qualifiedName?.asString() ?: error("Could not find qualified name for parameter: $this")
+        val typeName = StringBuilder(baseName)
+        val typeArgs = this.type.element?.typeArguments ?: emptyList()
+        if (typeArgs.isNotEmpty()) {
+            typeName.append("<")
+            typeName.append(
+                typeArgs.joinToString(", ") { typeArgument ->
+                    val type = typeArgument.type?.resolve()
+                    "${typeArgument.variance.label} ${type?.declaration?.qualifiedName?.asString() ?: error("Could not get qualified name for generic type parameter: $type")}" +
+                            (if (type.nullability == NULLABLE) "?" else "")
+                }
+            )
+            typeName.append(">")
+        }
+        return typeName.toString()
+    }
 
 class KotlinBuilderProcessorProvider : SymbolProcessorProvider {
     override fun create(

@@ -17,7 +17,6 @@ kotlin {
         jvmMain {
             dependencies {
                 implementation("com.google.devtools.ksp:symbol-processing-api:${kspVersion}")
-                implementation("com.squareup:javapoet:1.13.0")
             }
         }
     }
