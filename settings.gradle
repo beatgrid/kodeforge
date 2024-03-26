@@ -1,0 +1,38 @@
+pluginManagement {
+    def artifactoryUser = System.getenv("ARTIFACTORY_BEATGRID_CREDS_USR")
+    def artifactoryPassword = System.getenv("ARTIFACTORY_BEATGRID_CREDS_PSW")
+    plugins {
+        id("com.google.devtools.ksp") version kspVersion apply false
+        id("org.jetbrains.kotlin.multiplatform") version kotlinVersion apply false
+    }
+    repositories {
+        mavenLocal()
+        maven {
+            credentials {
+                username = artifactoryUser
+                password = artifactoryPassword
+            }
+            url = uri("https://artifactory.beatgrid.net/artifactory/libs-release-local")
+            mavenContent {
+                releasesOnly()
+            }
+        }
+        maven {
+            credentials {
+                username = artifactoryUser
+                password = artifactoryPassword
+            }
+            url = uri("https://artifactory.beatgrid.net/artifactory/libs-snapshot-local")
+            mavenContent {
+                snapshotsOnly()
+            }
+        }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+rootProject.name = "kodeforge"
+
+include("annotation")
+include("processor")

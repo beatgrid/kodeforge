@@ -1,0 +1,29 @@
+def artifactoryUser = System.getenv("ARTIFACTORY_BEATGRID_CREDS_USR")
+def artifactoryPassword = System.getenv("ARTIFACTORY_BEATGRID_CREDS_PSW")
+
+allprojects {
+    repositories {
+        mavenLocal()
+        maven {
+            credentials {
+                username = artifactoryUser
+                password = artifactoryPassword
+            }
+            url = uri("https://artifactory.beatgrid.net/artifactory/libs-release-local")
+            mavenContent {
+                releasesOnly()
+            }
+        }
+        maven {
+            credentials {
+                username = artifactoryUser
+                password = artifactoryPassword
+            }
+            url = uri("https://artifactory.beatgrid.net/artifactory/libs-snapshot-local")
+            mavenContent {
+                snapshotsOnly()
+            }
+        }
+        mavenCentral()
+    }
+}
