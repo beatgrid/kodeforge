@@ -15,6 +15,7 @@ import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.KSVisitorVoid
 import com.google.devtools.ksp.symbol.Nullability.NULLABLE
 import com.google.devtools.ksp.validate
+import javax.swing.text.html.HTML.Tag.P
 import java.io.OutputStream
 
 private fun OutputStream.appendText(str: String) {
@@ -46,24 +47,43 @@ class KotlinBuilderProcessor(
             val qualifiedClassName = parent.qualifiedName ?: error("Could not get qualified class name from: $parent")
             val functionContainingFile = function.containingFile ?: error("Could not get containing file from $function")
             val file = codeGenerator.createNewFile(Dependencies(true, functionContainingFile), packageName , className)
-            file.appendText("package $packageName\n\n")
+            file.appendText("package $packageName\n")
+            file.appendText("\n")
+            file.appendText("import kotlin.reflect.KParameter\n")
+            file.appendText("import kotlin.reflect.full.primaryConstructor\n")
+            file.appendText("\n")
             file.appendText("class $className{\n")
             function.parameters.forEach { parameter ->
                 val parameterName = parameter.name?.asString() ?: error("Could not get parameter name for parameter: $parameter")
                 val typeName = parameter.typeName
+                val hasDefault = parameter.hasDefault
+                val isNullable = parameter.type.resolve().nullability == NULLABLE
                 file.appendText("    private var $parameterName: $typeName? = null\n")
-                file.appendText("    fun $parameterName($parameterName: $typeName): $className = apply {\n")
+                if (hasDefault) {
+                    file.appendText("    private var ${parameterName}Set: Boolean = false\n")
+                }
+                file.appendText("    fun $parameterName($parameterName: $typeName${if (isNullable) "?" else ""}): $className = apply {\n")
+                if (hasDefault) {
+                    file.appendText("        this.${parameterName}Set = true\n")
+                }
                 file.appendText("        this.$parameterName = $parameterName\n")
                 file.appendText("    }\n\n")
             }
             file.appendText("    fun build(): ${qualifiedClassName.asString()} {\n")
-            file.appendText("        return ${qualifiedClassName.asString()}(\n")
-            for (parameter in function.parameters) {
+            file.appendText("        val primaryConstructor = ${qualifiedClassName.asString()}::class.primaryConstructor ?: error(\"There is no primary constructor present in class ${qualifiedClassName.asString()}\")\n")
+            file.appendText("        val arguments = mutableMapOf<KParameter, Any?>()\n")
+            file.appendText("        val constructorParameters = primaryConstructor.parameters.associateBy { it.name ?: error(\"Could not get name for parameter in primary constructor\") }\n")
+            function.parameters.forEach { parameter ->
                 val isNullable = parameter.type.resolve().nullability == NULLABLE
+                val hasDefault = parameter.hasDefault
                 val parameterName = parameter.name?.asString() ?: error("Could not get parameter name for parameter: $parameter")
-                file.appendText("            $parameterName = this.$parameterName" + (if (!isNullable) " ?: error(\"Required parameter $parameterName is not set\"),\n" else ",\n"))
+                if (hasDefault) {
+                    file.appendText("        if (${parameterName}Set) arguments[constructorParameters[\"$parameterName\"] ?: error(\"No constructor parameter found with name ${parameterName}\")] = this.$parameterName" + (if (!isNullable) " ?: error(\"Required property '$parameterName' is not set\")\n" else "\n"))
+                } else {
+                    file.appendText("        arguments[constructorParameters[\"$parameterName\"] ?: error(\"No constructor parameter found with name ${parameterName}\")] = this.$parameterName" + (if (!isNullable) " ?: error(\"Required property '$parameterName' is not set\")\n" else "\n"))
+                }
             }
-            file.appendText("        )\n")
+            file.appendText("        return primaryConstructor.callBy(args = arguments)\n")
             file.appendText("    }\n")
             file.appendText("}\n")
             file.close()

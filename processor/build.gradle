@@ -29,7 +29,7 @@ publishing {
                 username "${artifactoryUser}"
                 password "${artifactoryPassword}"
             }
-            url "https://artifactory.beatgrid.net/artifactory/libs-${project.version.endsWith('-SNAPSHOT') ? 'snapshot' : 'release' }-local"
+            url uri("https://artifactory.beatgrid.net/artifactory/libs-${project.version.endsWith('-SNAPSHOT') ? 'snapshot' : 'release' }-local")
         }
     }
 }
