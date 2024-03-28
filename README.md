@@ -46,7 +46,7 @@ Example usage of builder class:
 
 ```kotlin
 fun buildFoo(): Foo {
-    return FooBuiler()
+    return FooBuilder()
         .foo("foo")
         .bar("bar")
         .build()
