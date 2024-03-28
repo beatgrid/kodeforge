@@ -13,6 +13,7 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.KSVisitorVoid
+import com.google.devtools.ksp.symbol.Nullability
 import com.google.devtools.ksp.symbol.Nullability.NULLABLE
 import com.google.devtools.ksp.validate
 import java.io.OutputStream
@@ -21,6 +22,10 @@ private fun OutputStream.appendLine(str: String = "") {
     this.write(str.toByteArray())
     this.write('\n'.code)
 }
+
+private val Nullability.symbol: String
+    get() = if (this == NULLABLE) "?" else ""
+
 class KotlinBuilderProcessor(
     val codeGenerator: CodeGenerator,
     val logger: KSPLogger
@@ -56,16 +61,11 @@ class KotlinBuilderProcessor(
             function.parameters.forEach { parameter ->
                 val parameterName = parameter.name?.asString() ?: error("Could not get parameter name for parameter: $parameter")
                 val typeName = parameter.typeName
-                val hasDefault = parameter.hasDefault
                 val isNullable = parameter.type.resolve().nullability == NULLABLE
                 file.appendLine("    private var $parameterName: $typeName? = null")
-                if (hasDefault) {
-                    file.appendLine("    private var ${parameterName}Set: Boolean = false")
-                }
+                file.appendLine("    private var ${parameterName}Set: Boolean = false")
                 file.appendLine("    fun $parameterName($parameterName: $typeName${if (isNullable) "?" else ""}): $className = apply {")
-                if (hasDefault) {
-                    file.appendLine("        this.${parameterName}Set = true")
-                }
+                file.appendLine("        this.${parameterName}Set = true")
                 file.appendLine("        this.$parameterName = $parameterName")
                 file.appendLine("    }")
                 file.appendLine()
@@ -101,8 +101,14 @@ private val KSValueParameter.typeName: String
             typeName.append(
                 typeArgs.joinToString(", ") { typeArgument ->
                     val type = typeArgument.type?.resolve()
-                    "${typeArgument.variance.label} ${type?.declaration?.qualifiedName?.asString() ?: error("Could not get qualified name for generic type parameter: $type")}" +
-                            (if (type.nullability == NULLABLE) "?" else "")
+                    val qualifiedName = type?.declaration?.qualifiedName?.asString()
+                        ?: error("Could not get qualified name for generic type parameter: $type")
+                    val varianceModifier = typeArgument.variance.label
+                    if (varianceModifier.isEmpty()) {
+                        "$qualifiedName${type.nullability.symbol}"
+                    } else {
+                        "$varianceModifier $qualifiedName${type.nullability.symbol}"
+                    }
                 }
             )
             typeName.append(">")
