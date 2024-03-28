@@ -15,11 +15,11 @@ import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.KSVisitorVoid
 import com.google.devtools.ksp.symbol.Nullability.NULLABLE
 import com.google.devtools.ksp.validate
-import javax.swing.text.html.HTML.Tag.P
 import java.io.OutputStream
 
-private fun OutputStream.appendText(str: String) {
+private fun OutputStream.appendLine(str: String = "") {
     this.write(str.toByteArray())
+    this.write('\n'.code)
 }
 class KotlinBuilderProcessor(
     val codeGenerator: CodeGenerator,
@@ -47,44 +47,45 @@ class KotlinBuilderProcessor(
             val qualifiedClassName = parent.qualifiedName ?: error("Could not get qualified class name from: $parent")
             val functionContainingFile = function.containingFile ?: error("Could not get containing file from $function")
             val file = codeGenerator.createNewFile(Dependencies(true, functionContainingFile), packageName , className)
-            file.appendText("package $packageName\n")
-            file.appendText("\n")
-            file.appendText("import kotlin.reflect.KParameter\n")
-            file.appendText("import kotlin.reflect.full.primaryConstructor\n")
-            file.appendText("\n")
-            file.appendText("class $className{\n")
+            file.appendLine("package $packageName")
+            file.appendLine()
+            file.appendLine("import kotlin.reflect.KParameter")
+            file.appendLine("import kotlin.reflect.full.primaryConstructor")
+            file.appendLine()
+            file.appendLine("class $className {")
             function.parameters.forEach { parameter ->
                 val parameterName = parameter.name?.asString() ?: error("Could not get parameter name for parameter: $parameter")
                 val typeName = parameter.typeName
                 val hasDefault = parameter.hasDefault
                 val isNullable = parameter.type.resolve().nullability == NULLABLE
-                file.appendText("    private var $parameterName: $typeName? = null\n")
+                file.appendLine("    private var $parameterName: $typeName? = null")
                 if (hasDefault) {
-                    file.appendText("    private var ${parameterName}Set: Boolean = false\n")
+                    file.appendLine("    private var ${parameterName}Set: Boolean = false")
                 }
-                file.appendText("    fun $parameterName($parameterName: $typeName${if (isNullable) "?" else ""}): $className = apply {\n")
+                file.appendLine("    fun $parameterName($parameterName: $typeName${if (isNullable) "?" else ""}): $className = apply {")
                 if (hasDefault) {
-                    file.appendText("        this.${parameterName}Set = true\n")
+                    file.appendLine("        this.${parameterName}Set = true")
                 }
-                file.appendText("        this.$parameterName = $parameterName\n")
-                file.appendText("    }\n\n")
+                file.appendLine("        this.$parameterName = $parameterName")
+                file.appendLine("    }")
+                file.appendLine()
             }
-            file.appendText("    fun build(): ${qualifiedClassName.asString()} {\n")
-            file.appendText("        val primaryConstructor = ${qualifiedClassName.asString()}::class.primaryConstructor ?: error(\"There is no primary constructor present in class ${qualifiedClassName.asString()}\")\n")
-            file.appendText("        val arguments = mutableMapOf<KParameter, Any?>()\n")
-            file.appendText("        val constructorParameters = primaryConstructor.parameters.associateBy { it.name ?: error(\"Could not get name for parameter in primary constructor\") }\n")
+            file.appendLine("    fun build(): ${qualifiedClassName.asString()} {")
+            file.appendLine("        val primaryConstructor = ${qualifiedClassName.asString()}::class.primaryConstructor ?: error(\"There is no primary constructor present in class ${qualifiedClassName.asString()}\")")
+            file.appendLine("        val arguments = mutableMapOf<KParameter, Any?>()")
+            file.appendLine("        val constructorParameters = primaryConstructor.parameters.associateBy { it.name ?: error(\"Could not get name for parameter in primary constructor\") }")
             function.parameters.forEach { parameter ->
                 val isNullable = parameter.type.resolve().nullability == NULLABLE
                 val hasDefault = parameter.hasDefault
                 val parameterName = parameter.name?.asString() ?: error("Could not get parameter name for parameter: $parameter")
                 if (!hasDefault) {
-                    file.appendText("        require(${parameterName}Set) { \"Required property '$parameterName' is not set\" }")
+                    file.appendLine("        require(${parameterName}Set) { \"Required property '$parameterName' is not set\" }")
                 }
-                file.appendText("        if (${parameterName}Set) arguments[constructorParameters[\"$parameterName\"]!!] = this.$parameterName" + (if (isNullable) "\n" else "!!\n"))
+                file.appendLine("        if (${parameterName}Set) arguments[constructorParameters[\"$parameterName\"]!!] = this.$parameterName" + (if (isNullable) "" else "!!"))
             }
-            file.appendText("        return primaryConstructor.callBy(args = arguments)\n")
-            file.appendText("    }\n")
-            file.appendText("}\n")
+            file.appendLine("        return primaryConstructor.callBy(args = arguments)")
+            file.appendLine("    }")
+            file.appendLine("}")
             file.close()
         }
     }
