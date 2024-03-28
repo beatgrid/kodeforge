@@ -77,11 +77,10 @@ class KotlinBuilderProcessor(
                 val isNullable = parameter.type.resolve().nullability == NULLABLE
                 val hasDefault = parameter.hasDefault
                 val parameterName = parameter.name?.asString() ?: error("Could not get parameter name for parameter: $parameter")
-                if (hasDefault) {
-                    file.appendText("        if (${parameterName}Set) arguments[constructorParameters[\"$parameterName\"] ?: error(\"No constructor parameter found with name ${parameterName}\")] = this.$parameterName" + (if (!isNullable) " ?: error(\"Required property '$parameterName' is not set\")\n" else "\n"))
-                } else {
-                    file.appendText("        arguments[constructorParameters[\"$parameterName\"] ?: error(\"No constructor parameter found with name ${parameterName}\")] = this.$parameterName" + (if (!isNullable) " ?: error(\"Required property '$parameterName' is not set\")\n" else "\n"))
+                if (!hasDefault) {
+                    file.appendText("        require(${parameterName}Set) { \"Required property '$parameterName' is not set\" }")
                 }
+                file.appendText("        if (${parameterName}Set) arguments[constructorParameters[\"$parameterName\"]!!] = this.$parameterName" + (if (isNullable) "\n" else "!!\n"))
             }
             file.appendText("        return primaryConstructor.callBy(args = arguments)\n")
             file.appendText("    }\n")
