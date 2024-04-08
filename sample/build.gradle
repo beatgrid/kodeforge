@@ -1,0 +1,25 @@
+plugins {
+    id("org.jetbrains.kotlin.multiplatform")
+    id("com.google.devtools.ksp")
+}
+
+kotlin {
+    jvm {
+        withJava()
+    }
+    sourceSets {
+        commonMain {
+            dependencies {
+                implementation(project(":annotation"))
+            }
+        }
+        jvmMain {
+            dependencies {
+            }
+        }
+    }
+}
+
+dependencies {
+    add("kspJvm", project(":processor"))
+}

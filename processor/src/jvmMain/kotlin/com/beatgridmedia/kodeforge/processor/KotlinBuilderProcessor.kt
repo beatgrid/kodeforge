@@ -51,14 +51,22 @@ class KotlinBuilderProcessor(
             val className = "${parent.simpleName.asString()}Builder"
             val qualifiedClassName = parent.qualifiedName ?: error("Could not get qualified class name from: $parent")
             val functionContainingFile = function.containingFile ?: error("Could not get containing file from $function")
+            val parameters = function.parameters.filter { it.isVal || it.isVar }
             val file = codeGenerator.createNewFile(Dependencies(true, functionContainingFile), packageName , className)
             file.appendLine("package $packageName")
             file.appendLine()
             file.appendLine("import kotlin.reflect.KParameter")
             file.appendLine("import kotlin.reflect.full.primaryConstructor")
             file.appendLine()
-            file.appendLine("class $className {")
-            function.parameters.forEach { parameter ->
+            file.appendLine("class $className() {")
+            file.appendLine("    constructor(other: ${qualifiedClassName.asString()}): this() {")
+            parameters.forEach { parameter ->
+                val parameterName = parameter.name?.asString() ?: error("Could not get parameter name for parameter: $parameter")
+                file.appendLine("        this.$parameterName = other.$parameterName")
+            }
+            file.appendLine("    }")
+            file.appendLine()
+            parameters.forEach { parameter ->
                 val parameterName = parameter.name?.asString() ?: error("Could not get parameter name for parameter: $parameter")
                 val typeName = parameter.typeName
                 val isNullable = parameter.type.resolve().nullability == NULLABLE
@@ -74,7 +82,7 @@ class KotlinBuilderProcessor(
             file.appendLine("        val primaryConstructor = ${qualifiedClassName.asString()}::class.primaryConstructor ?: error(\"There is no primary constructor present in class ${qualifiedClassName.asString()}\")")
             file.appendLine("        val arguments = mutableMapOf<KParameter, Any?>()")
             file.appendLine("        val constructorParameters = primaryConstructor.parameters.associateBy { it.name ?: error(\"Could not get name for parameter in primary constructor\") }")
-            function.parameters.forEach { parameter ->
+            parameters.forEach { parameter ->
                 val isNullable = parameter.type.resolve().nullability == NULLABLE
                 val hasDefault = parameter.hasDefault
                 val parameterName = parameter.name?.asString() ?: error("Could not get parameter name for parameter: $parameter")

@@ -77,4 +77,10 @@ fun buildFoo(): Foo {
         .bar("bar")
         .build()
 }
+
+fun copyFoo(foo: Foo, bar: String): Foo {
+    return FooBuilder(foo)
+        .bar(bar)
+        .build()
+}
 ```

@@ -1,7 +1,14 @@
+plugins {
+    id("org.jetbrains.kotlin.multiplatform")
+}
+
 def artifactoryUser = System.getenv("ARTIFACTORY_BEATGRID_CREDS_USR")
 def artifactoryPassword = System.getenv("ARTIFACTORY_BEATGRID_CREDS_PSW")
 
 allprojects {
+    kotlin {
+        jvm()
+    }
     repositories {
         mavenLocal()
         maven {

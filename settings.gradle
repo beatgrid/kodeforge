@@ -2,8 +2,8 @@ pluginManagement {
     def artifactoryUser = System.getenv("ARTIFACTORY_BEATGRID_CREDS_USR")
     def artifactoryPassword = System.getenv("ARTIFACTORY_BEATGRID_CREDS_PSW")
     plugins {
-        id("com.google.devtools.ksp") version kspVersion apply false
-        id("org.jetbrains.kotlin.multiplatform") version kotlinVersion apply false
+        id("com.google.devtools.ksp") version "$kspVersion" apply false
+        id("org.jetbrains.kotlin.multiplatform") version "$kotlinVersion" apply false
     }
     repositories {
         mavenLocal()
@@ -36,3 +36,4 @@ rootProject.name = "kodeforge"
 
 include("annotation")
 include("processor")
+include("sample")
