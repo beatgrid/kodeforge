@@ -6,13 +6,15 @@ A multiplatform code generation library based on KSP.
 
 - @Builder annotation: automatically generate a builder (with name "${classname}Builder") for use in Java code from a kotlin class.
 
-## Usage
+## Build setup
+
+### Multiplatform Gradle
 
 - Add the following to your `build.gradle` or `build.gradle.kts`
 
 ```groovy
 plugins {
-    id("com.google.devtools.ksp")
+    id("com.google.devtools.ksp") version "$ksp_version"
 }
 
 kotlin {
@@ -29,6 +31,30 @@ dependencies {
     add("kspJvm", "com.beatgridmedia.kodeforge:processor:$kodeforge_version")
 }
 ```
+
+### Java Gradle
+
+- Add the following to your `build.gradle` or `build.gradle.kts`
+
+```groovy
+plugins {
+    id("com.google.devtools.ksp") version "$ksp_version"
+    id("org.jetbrains.kotlin.jvm") version "$kotlin_version"
+}
+
+dependencies {
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version")
+    implementation("com.beatgridmedia.kodeforge:annotation-jvm:$kodeforge_version")
+    ksp("com.beatgridmedia.kodeforge:processor-jvm:$kodeforge_version")
+}
+
+```
+
+### Java Maven
+
+- Not officially supported, but there are third party options: https://github.com/Dyescape/kotlin-maven-symbol-processing
+
+## Usage
 
 - To any kotlin class, add the `@Builder` annotation:
 
