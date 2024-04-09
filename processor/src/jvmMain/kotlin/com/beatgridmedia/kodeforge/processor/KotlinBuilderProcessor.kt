@@ -1,6 +1,7 @@
 package com.beatgridmedia.kodeforge.processor
 
 import com.beatgridmedia.kodeforge.annotation.Builder
+import com.google.devtools.ksp.isPrivate
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
@@ -11,11 +12,15 @@ import com.google.devtools.ksp.processing.SymbolProcessorProvider
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
+import com.google.devtools.ksp.symbol.KSPropertyDeclaration
+import com.google.devtools.ksp.symbol.KSTypeParameter
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.KSVisitorVoid
+import com.google.devtools.ksp.symbol.Modifier.PRIVATE
 import com.google.devtools.ksp.symbol.Nullability
 import com.google.devtools.ksp.symbol.Nullability.NULLABLE
 import com.google.devtools.ksp.validate
+import kotlin.reflect.jvm.isAccessible
 import java.io.OutputStream
 
 private fun OutputStream.appendLine(str: String = "") {
@@ -51,18 +56,33 @@ class KotlinBuilderProcessor(
             val className = "${parent.simpleName.asString()}Builder"
             val qualifiedClassName = parent.qualifiedName ?: error("Could not get qualified class name from: $parent")
             val functionContainingFile = function.containingFile ?: error("Could not get containing file from $function")
-            val parameters = function.parameters.filter { it.isVal || it.isVar }
+            val parameters = function.parameters
+            val properties = parent.getAllProperties().toList()
             val file = codeGenerator.createNewFile(Dependencies(true, functionContainingFile), packageName , className)
             file.appendLine("package $packageName")
             file.appendLine()
             file.appendLine("import kotlin.reflect.KParameter")
             file.appendLine("import kotlin.reflect.full.primaryConstructor")
+            file.appendLine("import kotlin.reflect.full.memberProperties")
+            file.appendLine("import kotlin.reflect.jvm.isAccessible")
             file.appendLine()
             file.appendLine("class $className() {")
             file.appendLine("    constructor(other: ${qualifiedClassName.asString()}): this() {")
             parameters.forEach { parameter ->
+                parameter.type
+                val typeName = parameter.typeName
                 val parameterName = parameter.name?.asString() ?: error("Could not get parameter name for parameter: $parameter")
-                file.appendLine("        this.$parameterName = other.$parameterName")
+                val property: KSPropertyDeclaration? = properties.firstOrNull { it.simpleName.asString() == parameterName }
+                if (property != null) {
+                    if (property.isPrivate()) {
+                        file.appendLine("        ${qualifiedClassName.asString()}::class.memberProperties.find { it.name == \"$parameterName\" }?.also {")
+                        file.appendLine("            it.isAccessible = true")
+                        file.appendLine("            this.$parameterName = it.get(other) as $typeName")
+                        file.appendLine("        }")
+                    } else {
+                        file.appendLine("        this.$parameterName = other.$parameterName")
+                    }
+                }
             }
             file.appendLine("    }")
             file.appendLine()
