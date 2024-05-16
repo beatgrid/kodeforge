@@ -77,10 +77,10 @@ class KotlinBuilderProcessor(
                     if (property.isPrivate()) {
                         file.appendLine("        ${qualifiedClassName.asString()}::class.memberProperties.find { it.name == \"$parameterName\" }?.also {")
                         file.appendLine("            it.isAccessible = true")
-                        file.appendLine("            this.$parameterName = it.get(other) as $typeName")
+                        file.appendLine("            this.$parameterName(it.get(other) as $typeName)")
                         file.appendLine("        }")
                     } else {
-                        file.appendLine("        this.$parameterName = other.$parameterName")
+                        file.appendLine("        this.$parameterName(other.$parameterName)")
                     }
                 }
             }
@@ -91,9 +91,9 @@ class KotlinBuilderProcessor(
                 val typeName = parameter.typeName
                 val isNullable = parameter.type.resolve().nullability == NULLABLE
                 file.appendLine("    private var $parameterName: $typeName? = null")
-                file.appendLine("    private var ${parameterName}Set: Boolean = false")
+                file.appendLine("    private var _${parameterName}Set: Boolean = false")
                 file.appendLine("    fun $parameterName($parameterName: $typeName${if (isNullable) "?" else ""}): $className = apply {")
-                file.appendLine("        this.${parameterName}Set = true")
+                file.appendLine("        this._${parameterName}Set = true")
                 file.appendLine("        this.$parameterName = $parameterName")
                 file.appendLine("    }")
                 file.appendLine()
@@ -107,9 +107,9 @@ class KotlinBuilderProcessor(
                 val hasDefault = parameter.hasDefault
                 val parameterName = parameter.name?.asString() ?: error("Could not get parameter name for parameter: $parameter")
                 if (!hasDefault) {
-                    file.appendLine("        require(${parameterName}Set) { \"Required property '$parameterName' is not set\" }")
+                    file.appendLine("        require(_${parameterName}Set) { \"Required property '$parameterName' is not set\" }")
                 }
-                file.appendLine("        if (${parameterName}Set) arguments[constructorParameters[\"$parameterName\"]!!] = this.$parameterName" + (if (isNullable) "" else "!!"))
+                file.appendLine("        if (_${parameterName}Set) arguments[constructorParameters[\"$parameterName\"]!!] = this.$parameterName" + (if (isNullable) "" else "!!"))
             }
             file.appendLine("        return primaryConstructor.callBy(args = arguments)")
             file.appendLine("    }")
