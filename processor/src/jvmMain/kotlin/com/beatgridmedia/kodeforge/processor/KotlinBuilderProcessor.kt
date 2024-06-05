@@ -66,8 +66,8 @@ class KotlinBuilderProcessor(
             file.appendLine("import kotlin.reflect.full.memberProperties")
             file.appendLine("import kotlin.reflect.jvm.isAccessible")
             file.appendLine()
-            file.appendLine("class $className() {")
-            file.appendLine("    constructor(other: ${qualifiedClassName.asString()}): this() {")
+            file.appendLine("class $className @JvmOverloads constructor(private val allowNullAsImplicitDefault: Boolean = false) {")
+            file.appendLine("    @JvmOverloads constructor(other: ${qualifiedClassName.asString()}, allowNullAsImplicitDefault: Boolean = false): this(allowNullAsImplicitDefault) {")
             parameters.forEach { parameter ->
                 parameter.type
                 val typeName = parameter.typeName
@@ -91,7 +91,9 @@ class KotlinBuilderProcessor(
                 val typeName = parameter.typeName
                 val isNullable = parameter.type.resolve().nullability == NULLABLE
                 file.appendLine("    private var _$parameterName: $typeName? = null")
+                file.appendLine("    private var _${parameterName}Set: Boolean = false")
                 file.appendLine("    fun $parameterName($parameterName: $typeName${if (isNullable) "?" else ""}): $className = apply {")
+                file.appendLine("        this._${parameterName}Set = true")
                 file.appendLine("        this._$parameterName = $parameterName")
                 file.appendLine("    }")
                 file.appendLine()
@@ -104,13 +106,15 @@ class KotlinBuilderProcessor(
                 val isNullable = parameter.type.resolve().nullability == NULLABLE
                 val hasDefault = parameter.hasDefault
                 val parameterName = parameter.name?.asString() ?: error("Could not get parameter name for parameter: $parameter")
-                if (!hasDefault && !isNullable) {
-                    file.appendLine("        requireNotNull(_${parameterName}) { \"Required property '$parameterName' is not set\" }")
-                }
-                if (isNullable) {
-                    file.appendLine("        arguments[constructorParameters[\"$parameterName\"]!!] = _$parameterName")
+                if (!hasDefault) {
+                    if (isNullable) {
+                        file.appendLine("        if (!allowNullAsImplicitDefault) require(_${parameterName}Set) { \"Required property '$parameterName' is not set\" }")
+                    } else {
+                        file.appendLine("        require(_${parameterName}Set) { \"Required property '$parameterName' is not set\" }")
+                    }
+                    file.appendLine("        arguments[constructorParameters[\"$parameterName\"]!!] = _$parameterName" + (if (isNullable) "" else "!!"))
                 } else {
-                    file.appendLine("        _${parameterName}?.let { arguments[constructorParameters[\"$parameterName\"]!!] = it }")
+                    file.appendLine("        if (_${parameterName}Set) arguments[constructorParameters[\"$parameterName\"]!!] = _$parameterName" + (if (isNullable) "" else "!!"))
                 }
             }
             file.appendLine("        return primaryConstructor.callBy(args = arguments)")
