@@ -90,11 +90,9 @@ class KotlinBuilderProcessor(
                 val parameterName = parameter.name?.asString() ?: error("Could not get parameter name for parameter: $parameter")
                 val typeName = parameter.typeName
                 val isNullable = parameter.type.resolve().nullability == NULLABLE
-                file.appendLine("    private var $parameterName: $typeName? = null")
-                file.appendLine("    private var _${parameterName}Set: Boolean = false")
+                file.appendLine("    private var _$parameterName: $typeName? = null")
                 file.appendLine("    fun $parameterName($parameterName: $typeName${if (isNullable) "?" else ""}): $className = apply {")
-                file.appendLine("        this._${parameterName}Set = true")
-                file.appendLine("        this.$parameterName = $parameterName")
+                file.appendLine("        this._$parameterName = $parameterName")
                 file.appendLine("    }")
                 file.appendLine()
             }
@@ -106,10 +104,14 @@ class KotlinBuilderProcessor(
                 val isNullable = parameter.type.resolve().nullability == NULLABLE
                 val hasDefault = parameter.hasDefault
                 val parameterName = parameter.name?.asString() ?: error("Could not get parameter name for parameter: $parameter")
-                if (!hasDefault) {
-                    file.appendLine("        require(_${parameterName}Set) { \"Required property '$parameterName' is not set\" }")
+                if (!hasDefault && !isNullable) {
+                    file.appendLine("        requireNotNull(_${parameterName}) { \"Required property '$parameterName' is not set\" }")
                 }
-                file.appendLine("        if (_${parameterName}Set) arguments[constructorParameters[\"$parameterName\"]!!] = this.$parameterName" + (if (isNullable) "" else "!!"))
+                if (isNullable) {
+                    file.appendLine("        arguments[constructorParameters[\"$parameterName\"]!!] = _$parameterName")
+                } else {
+                    file.appendLine("        _${parameterName}?.let { arguments[constructorParameters[\"$parameterName\"]!!] = it }")
+                }
             }
             file.appendLine("        return primaryConstructor.callBy(args = arguments)")
             file.appendLine("    }")
