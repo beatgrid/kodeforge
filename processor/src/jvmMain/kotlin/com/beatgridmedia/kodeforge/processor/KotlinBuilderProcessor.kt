@@ -13,14 +13,12 @@ import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
-import com.google.devtools.ksp.symbol.KSTypeParameter
+import com.google.devtools.ksp.symbol.KSTypeReference
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.KSVisitorVoid
-import com.google.devtools.ksp.symbol.Modifier.PRIVATE
 import com.google.devtools.ksp.symbol.Nullability
 import com.google.devtools.ksp.symbol.Nullability.NULLABLE
 import com.google.devtools.ksp.validate
-import kotlin.reflect.jvm.isAccessible
 import java.io.OutputStream
 
 private fun OutputStream.appendLine(str: String = "") {
@@ -125,29 +123,33 @@ class KotlinBuilderProcessor(
     }
 }
 
-private val KSValueParameter.typeName: String
+private val KSTypeReference.typeName: String
     get() {
-        val baseName = this.type.resolve().declaration.qualifiedName?.asString() ?: error("Could not find qualified name for parameter: $this")
+        val baseName = this.resolve().declaration.qualifiedName?.asString() ?: error("Could not find qualified name for parameter: $this")
         val typeName = StringBuilder(baseName)
-        val typeArgs = this.type.element?.typeArguments ?: emptyList()
+        val typeArgs = this.element?.typeArguments ?: emptyList()
         if (typeArgs.isNotEmpty()) {
             typeName.append("<")
             typeName.append(
                 typeArgs.joinToString(", ") { typeArgument ->
-                    val type = typeArgument.type?.resolve()
-                    val qualifiedName = type?.declaration?.qualifiedName?.asString()
-                        ?: error("Could not get qualified name for generic type parameter: $type")
+                    val subTypeName = typeArgument.type?.typeName ?: ""
+                    val nullabilitySymbol = typeArgument.type?.resolve()?.nullability?.symbol ?: ""
                     val varianceModifier = typeArgument.variance.label
                     if (varianceModifier.isEmpty()) {
-                        "$qualifiedName${type.nullability.symbol}"
+                        "$subTypeName$nullabilitySymbol".trim()
                     } else {
-                        "$varianceModifier $qualifiedName${type.nullability.symbol}"
+                        "$varianceModifier $subTypeName$nullabilitySymbol".trim()
                     }
                 }
             )
             typeName.append(">")
         }
         return typeName.toString()
+    }
+
+private val KSValueParameter.typeName: String
+    get() {
+        return this.type.typeName
     }
 
 class KotlinBuilderProcessorProvider : SymbolProcessorProvider {
