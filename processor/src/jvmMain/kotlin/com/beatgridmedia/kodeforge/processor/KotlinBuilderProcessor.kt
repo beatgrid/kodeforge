@@ -9,6 +9,7 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.processing.SymbolProcessorProvider
+import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
@@ -51,7 +52,7 @@ class KotlinBuilderProcessor(
         override fun visitFunctionDeclaration(function: KSFunctionDeclaration, data: Unit) {
             val parent = function.parentDeclaration as? KSClassDeclaration ?: error("Expected parent declaration to be a class declaration but was: ${function.parentDeclaration}")
             val packageName = parent.containingFile?.packageName?.asString() ?: error("Could not get containing file from: $parent")
-            val className = "${parent.simpleName.asString()}Builder"
+            val className = parent.builderClassName
             val qualifiedClassName = parent.qualifiedName ?: error("Could not get qualified class name from: $parent")
             val functionContainingFile = function.containingFile ?: error("Could not get containing file from $function")
             val parameters = function.parameters
@@ -145,6 +146,25 @@ private val KSTypeReference.typeName: String
             typeName.append(">")
         }
         return typeName.toString()
+    }
+
+private val KSClassDeclaration.builderClassName: String
+    get() {
+        if (this.classKind != ClassKind.CLASS) {
+            error("Builder annotation is only supported for class types")
+        }
+        val buffer = StringBuilder()
+        val classDeclarations = ArrayDeque<KSClassDeclaration>()
+        var parent: KSClassDeclaration? = this
+        while (parent != null) {
+            classDeclarations.addFirst(parent)
+            parent = parent.parentDeclaration as? KSClassDeclaration
+        }
+        classDeclarations.forEach {
+            buffer.append(it.simpleName.asString())
+        }
+        buffer.append("Builder")
+        return buffer.toString()
     }
 
 private val KSValueParameter.typeName: String
