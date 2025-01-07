@@ -65,6 +65,7 @@ class KotlinBuilderProcessor(
             file.appendLine("import kotlin.reflect.full.memberProperties")
             file.appendLine("import kotlin.reflect.jvm.isAccessible")
             file.appendLine()
+            file.appendLine("@Suppress(\"DEPRECATION\")")
             file.appendLine("class $className @JvmOverloads constructor(private val allowNullAsImplicitDefault: Boolean = false) {")
             file.appendLine("    @JvmOverloads constructor(other: ${qualifiedClassName.asString()}, allowNullAsImplicitDefault: Boolean = false): this(allowNullAsImplicitDefault) {")
             parameters.forEach { parameter ->
