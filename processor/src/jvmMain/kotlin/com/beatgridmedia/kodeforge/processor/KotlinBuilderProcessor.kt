@@ -91,9 +91,9 @@ class KotlinBuilderProcessor(
                 val typeName = parameter.typeName
                 val isNullable = parameter.type.resolve().nullability == NULLABLE
                 file.appendLine("    private var _$parameterName: $typeName? = null")
-                file.appendLine("    private var _${parameterName}Set: Boolean = false")
+                file.appendLine("    private var _is${parameterName.replaceFirstChar { it.uppercaseChar() }}Set: Boolean = false")
                 file.appendLine("    fun $parameterName($parameterName: $typeName${if (isNullable) "?" else ""}): $className = apply {")
-                file.appendLine("        this._${parameterName}Set = true")
+                file.appendLine("        this._is${parameterName.replaceFirstChar { it.uppercaseChar() }}Set = true")
                 file.appendLine("        this._$parameterName = $parameterName")
                 file.appendLine("    }")
                 file.appendLine()
@@ -108,13 +108,13 @@ class KotlinBuilderProcessor(
                 val parameterName = parameter.name?.asString() ?: error("Could not get parameter name for parameter: $parameter")
                 if (!hasDefault) {
                     if (isNullable) {
-                        file.appendLine("        if (!allowNullAsImplicitDefault) require(_${parameterName}Set) { \"Required property '$parameterName' is not set\" }")
+                        file.appendLine("        if (!allowNullAsImplicitDefault) require(_is${parameterName.replaceFirstChar { it.uppercaseChar() }}Set) { \"Required property '$parameterName' is not set\" }")
                     } else {
-                        file.appendLine("        require(_${parameterName}Set) { \"Required property '$parameterName' is not set\" }")
+                        file.appendLine("        require(_is${parameterName.replaceFirstChar { it.uppercaseChar() }}Set) { \"Required property '$parameterName' is not set\" }")
                     }
                     file.appendLine("        arguments[constructorParameters[\"$parameterName\"]!!] = _$parameterName" + (if (isNullable) "" else "!!"))
                 } else {
-                    file.appendLine("        if (_${parameterName}Set) arguments[constructorParameters[\"$parameterName\"]!!] = _$parameterName" + (if (isNullable) "" else "!!"))
+                    file.appendLine("        if (_is${parameterName.replaceFirstChar { it.uppercaseChar() }}Set) arguments[constructorParameters[\"$parameterName\"]!!] = _$parameterName" + (if (isNullable) "" else "!!"))
                 }
             }
             file.appendLine("        return primaryConstructor.callBy(args = arguments)")
