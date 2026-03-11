@@ -99,18 +99,18 @@ class KotlinBuilderProcessor(
                 file.appendLine()
             }
             file.appendLine("    fun build(): ${qualifiedClassName.asString()} {")
-            file.appendLine("        val primaryConstructor = ${qualifiedClassName.asString()}::class.primaryConstructor ?: error(\"There is no primary constructor present in class ${qualifiedClassName.asString()}\")")
+            file.appendLine("        val primaryConstructor = ${qualifiedClassName.asString()}::class.primaryConstructor ?: kotlin.error(\"There is no primary constructor present in class ${qualifiedClassName.asString()}\")")
             file.appendLine("        val arguments = mutableMapOf<KParameter, Any?>()")
-            file.appendLine("        val constructorParameters = primaryConstructor.parameters.associateBy { it.name ?: error(\"Could not get name for parameter in primary constructor\") }")
+            file.appendLine("        val constructorParameters = primaryConstructor.parameters.associateBy { it.name ?: kotlin.error(\"Could not get name for parameter in primary constructor\") }")
             parameters.forEach { parameter ->
                 val isNullable = parameter.type.resolve().nullability == NULLABLE
                 val hasDefault = parameter.hasDefault
                 val parameterName = parameter.name?.asString() ?: error("Could not get parameter name for parameter: $parameter")
                 if (!hasDefault) {
                     if (isNullable) {
-                        file.appendLine("        if (!allowNullAsImplicitDefault) require(_${parameterName}Set) { \"Required property '$parameterName' is not set\" }")
+                        file.appendLine("        if (!allowNullAsImplicitDefault) kotlin.require(_${parameterName}Set) { \"Required property '$parameterName' is not set\" }")
                     } else {
-                        file.appendLine("        require(_${parameterName}Set) { \"Required property '$parameterName' is not set\" }")
+                        file.appendLine("        kotlin.require(_${parameterName}Set) { \"Required property '$parameterName' is not set\" }")
                     }
                     file.appendLine("        arguments[constructorParameters[\"$parameterName\"]!!] = _$parameterName" + (if (isNullable) "" else "!!"))
                 } else {
